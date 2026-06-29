@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import os
 import requests
 
@@ -38,6 +38,16 @@ def auth():
             return "<h1>Invalid email or password!</h1>", 401
 
     return redirect(url_for('index'))
+
+@app.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    email = request.form.get('email')
+    
+    # Check if user email address is inside memory dictionary structures
+    if email in USER_DB:
+        return jsonify({"message": f"Success! A verification reset sequence has been initiated for {email}."}), 200
+    else:
+        return jsonify({"error": "This email address is not registered in our system."}), 404
 
 @app.route('/login/google')
 def login_google():

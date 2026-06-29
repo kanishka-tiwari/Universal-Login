@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auth Plugin</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --bg-gradient: linear-gradient(135deg, #E0E7FF 0%, #F3E8FF 100%);
@@ -45,6 +44,7 @@
 
         .form-group {
             margin-bottom: 1.25rem;
+            position: relative;
         }
 
         label {
@@ -68,6 +68,23 @@
         input:focus {
             outline: none;
             border-color: var(--primary-blue);
+        }
+
+        .forgot-link-container {
+            text-align: right;
+            margin-top: -0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .forgot-link {
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline;
         }
 
         .btn {
@@ -118,6 +135,11 @@
             justify-content: center;
             gap: 10px;
             margin-bottom: 0.75rem;
+            text-decoration: none;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.75rem;
         }
 
         .social-btn.google:hover {
@@ -137,6 +159,54 @@
             text-decoration: none;
             font-weight: 600;
         }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            position: relative;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #9CA3AF;
+        }
+
+        .close-btn:hover {
+            color: #4B5563;
+        }
+
+        .modal h3 {
+            margin-top: 0;
+            color: var(--text-main);
+        }
+
+        .modal p {
+            font-size: 0.9rem;
+            color: #6B7280;
+            margin-bottom: 1.5rem;
+        }
     </style>
 </head>
 <body>
@@ -145,7 +215,7 @@
     <h2 id="form-title">Login</h2>
     
     <form id="auth-form" action="/auth?action=login" method="POST">
-            <div class="form-group">
+        <div class="form-group">
             <label for="email">Email Address</label>
             <input type="email" id="email" name="email" required>
         </div>
@@ -153,6 +223,11 @@
             <label for="password">Password</label>
             <input type="password" id="password" name="password" required>
         </div>
+        
+        <div class="forgot-link-container" id="forgot-container">
+            <a href="#" class="forgot-link" onclick="openModal(event)">Forgot Password?</a>
+        </div>
+
         <button type="submit" class="btn btn-submit" id="submit-btn">Sign In</button>
     </form>
 
@@ -168,6 +243,21 @@
     </div>
 </div>
 
+<div id="forgot-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <h3>Reset Password</h3>
+        <p>Enter your registered email address below, and we'll verify if your account exists.</p>
+        <form id="forgot-form">
+            <div class="form-group">
+                <label for="forgot-email">Email Address</label>
+                <input type="email" id="forgot-email" required>
+            </div>
+            <button type="submit" class="btn" style="background: var(--lavender);">Reset Password</button>
+        </form>
+    </div>
+</div>
+
 <script>
     let isLogin = true;
 
@@ -179,6 +269,7 @@
         const submitBtn = document.getElementById('submit-btn');
         const toggleContainer = document.getElementById('toggle-container');
         const form = document.getElementById('auth-form');
+        const forgotContainer = document.getElementById('forgot-container');
 
         if (isLogin) {
             formTitle.innerText = "Login";
@@ -186,15 +277,62 @@
             submitBtn.style.background = "var(--primary-green)";
             toggleContainer.innerHTML = `Don't have an account? <a href="#" onclick="toggleForm(event)">Sign Up</a>`;
             form.action = "/auth?action=login";
+            forgotContainer.style.display = "block"; // Show forgot password link
         } else {
             formTitle.innerText = "Sign Up";
             submitBtn.innerText = "Create Account";
             submitBtn.style.background = "var(--primary-blue)";
             toggleContainer.innerHTML = `Already have an account? <a href="#" onclick="toggleForm(event)">Login</a>`;
             form.action = "/auth?action=signup";
+            forgotContainer.style.display = "none"; // Hide forgot password link
         }
     }
+
+    // Modal Display Logic
+    function openModal(e) {
+        e.preventDefault();
+        document.getElementById('forgot-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('forgot-modal').style.display = 'none';
+        document.getElementById('forgot-form').reset();
+    }
+
+    // Close modal if user clicks outside the inner card box
+    window.onclick = function(event) {
+        const modal = document.getElementById('forgot-modal');
+        if (event.target == modal) {
+            closeModal();
+        }
+    }
+
+    // Submit processing logic via asynchronous backend call
+    document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('forgot-email').value;
+
+        try {
+            const response = await fetch('/forgot-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `email=${encodeURIComponent(email)}`
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert(result.message); // Successful match notification window
+                closeModal();
+            } else {
+                alert(result.error); // Error message handling box windows alert
+            }
+        } catch (error) {
+            alert("Something went wrong. Please try again later.");
+        }
+    });
 </script>
 </body>
 </html>
-
