@@ -49,11 +49,12 @@ def callback():
     token_endpoint = google_provider_cfg["token_endpoint"]
 
     # Prepare credentials data to exchange the authorization code for an access token
+    # Prepare credentials data to exchange the authorization code for an access token
     token_data = {
         "code": code,
         "client_id": GOOGLE_CLIENT_ID,
         "client_secret": GOOGLE_CLIENT_SECRET,
-        "redirect_uri": request.url_root.replace('http://', 'https://')}callback,
+        "redirect_uri": request.url_root.replace('http://', 'https://') + "callback",
         "grant_type": "authorization_code"
     }
 
