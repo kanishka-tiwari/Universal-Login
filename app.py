@@ -5,17 +5,16 @@ import requests
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Google OAuth Configuration
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
-# Mock database tracking credentials and active device session tokens
-USER_DB = {}          # format: {email: password}
-ACTIVE_SESSIONS = {}  # format: {email: session_id}
+# Updated database mapping formats
+USERS = {}         # Stores registration metadata profiles: {username: {"email": email, "password": password}}
+EMAIL_MAP = {}     # Relates registration emails directly back to usernames: {email: username}
+ACTIVE_SESSIONS = {}  
 
 def validate_password(password):
-    """Enforces standard registration criteria: 8+ chars, 1 number, 1 uppercase."""
     if len(password) < 8:
         return "Password must be at least 8 characters long."
     if not any(char.isdigit() for char in password):
@@ -33,44 +32,60 @@ def index():
 @app.route('/auth', methods=['POST'])
 def auth():
     action = request.args.get('action', 'login')
-    email = request.form.get('email').strip().lower()
-    password = request.form.get('password')
     
     if action == 'signup':
-        if email in USER_DB:
-            return "<h1>Account already exists! Go back and login.</h1>", 400
+        username = request.form.get('identifier').strip().lower()
+        email = request.form.get('email').strip().lower()
+        password = request.form.get('password')
         
-        # password validation gate check
+        if username in USERS:
+            return "<h1>Username already taken! Go back and try another.</h1>", 400
+        if email in EMAIL_MAP:
+            return "<h1>Email already registered! Go back and login.</h1>", 400
+            
         password_error = validate_password(password)
         if password_error:
             return f"<h1>Registration Failed</h1><p>{password_error}</p><a href='/'>Go Back</a>", 400
             
-        USER_DB[email] = password
+        # Write registration configuration profiles across maps
+        USERS[username] = {"email": email, "password": password}
+        EMAIL_MAP[email] = username
         
-        # create user session variables
-        session['user'] = email
+        session['user'] = username
         current_session_token = os.urandom(16).hex()
         session['session_token'] = current_session_token
-        ACTIVE_SESSIONS[email] = current_session_token
+        ACTIVE_SESSIONS[username] = current_session_token
         return redirect(url_for('dashboard'))
         
     elif action == 'login':
-        if email in USER_DB and USER_DB[email] == password:
-            # multi-device session manager validation logic override
-            current_session_token = os.urandom(16).hex()
-            session['user'] = email
-            session['session_token'] = current_session_token
-            ACTIVE_SESSIONS[email] = current_session_token
-            return redirect(url_for('dashboard'))
-        else:
-            return "<h1>Invalid email or password!</h1>", 401
+        identifier = request.form.get('identifier').strip().lower()
+        password = request.form.get('password')
+        
+        # Derive target user account record context
+        target_username = None
+        if identifier in USERS:
+            target_username = identifier
+        elif identifier in EMAIL_MAP:
+            target_username = EMAIL_MAP[identifier]
+            
+        if not target_username:
+            return jsonify({"error": "This email or username is not registered. Sign Up to make a new account."}), 404
+            
+        if USERS[target_username]["password"] != password:
+            return jsonify({"error": "Invalid password."}), 401
+
+        current_session_token = os.urandom(16).hex()
+        session['user'] = target_username
+        session['session_token'] = current_session_token
+        ACTIVE_SESSIONS[target_username] = current_session_token
+        return redirect(url_for('dashboard'))
 
     return redirect(url_for('index'))
 
 @app.route('/forgot-password', methods=['POST'])
 def forgot_password():
     email = request.form.get('email').strip().lower()
-    if email in USER_DB:
+    if email in EMAIL_MAP:
         return jsonify({"message": f"Success! A verification reset sequence has been initiated for {email}."}), 200
     return jsonify({"error": "This email address is not registered in our system."}), 404
 
@@ -101,29 +116,32 @@ def callback():
     }
     token_response = requests.post(token_endpoint, data=token_data).json()
     
-    # Mock account creation or mapping logic step for social logins
     email = token_response.get("email", "google_user@example.com")
+    username = email.split('@')[0]
+    
+    if username not in USERS:
+        USERS[username] = {"email": email, "password": None}
+        EMAIL_MAP[email] = username
+
     current_session_token = os.urandom(16).hex()
-    session['user'] = email
+    session['user'] = username
     session['session_token'] = current_session_token
-    ACTIVE_SESSIONS[email] = current_session_token
+    ACTIVE_SESSIONS[username] = current_session_token
     return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
 def dashboard():
-    # Route Protection Check: Block direct URL hits if unauthenticated
     if 'user' not in session:
         return redirect(url_for('index'))
         
-    # Active concurrent device confirmation session token verification check
     user = session['user']
     if ACTIVE_SESSIONS.get(user) != session.get('session_token'):
         session.clear()
         return "<h1>Session expired. Logged in from another device.</h1><a href='/'>Login Again</a>", 401
 
-    return """
+    return f"""
     <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #E0E7FF 0%, #F3E8FF 100%); margin: 0;">
-        <h1 style="font-size: 2.5rem; color: #1F2937; text-align: center; padding: 0 20px;">Welcome to your Application!<br><span style="color: #10B981;">Authentication Successful.</span></h1>
+        <h1 style="font-size: 2.5rem; color: #1F2937; text-align: center; padding: 0 20px;">Welcome, {user}!<br><span style="color: #10B981;">Authentication Successful.</span></h1>
         <a href="/logout" style="margin-top: 20px; padding: 10px 20px; background-color: #F43F5E; color: white; text-decoration: none; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">Logout</a>
     </div>
     """

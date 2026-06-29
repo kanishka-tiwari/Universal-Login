@@ -70,9 +70,17 @@
             border-color: var(--primary-blue);
         }
 
+        .error-text {
+            color: var(--coral);
+            font-size: 0.8rem;
+            margin-top: 0.35rem;
+            display: none;
+            font-weight: 500;
+        }
+
         .forgot-link-container {
             text-align: right;
-            margin-top: -0.75rem;
+            margin-top: -0.5rem;
             margin-bottom: 1.25rem;
         }
 
@@ -160,7 +168,6 @@
             font-weight: 600;
         }
 
-        /* Modal Styles */
         .modal {
             display: none;
             position: fixed;
@@ -216,12 +223,21 @@
     
     <form id="auth-form" action="/auth?action=login" method="POST">
         <div class="form-group">
-            <label for="email">Email Address</label>
-            <input type="email" id="email" name="email" required>
+            <label id="identifier-label" for="identifier">Email Address or Username</label>
+            <input type="text" id="identifier" name="identifier" required>
+            <div id="identifier-error" class="error-text"></div>
         </div>
+        
+        <div class="form-group" id="signup-email-group" style="display: none;">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email">
+            <div id="signup-email-error" class="error-text"></div>
+        </div>
+
         <div class="form-group">
             <label for="password">Password</label>
             <input type="password" id="password" name="password" minlength="8" required>
+            <div id="password-error" class="error-text"></div>
         </div>
         
         <div class="forgot-link-container" id="forgot-container">
@@ -270,6 +286,14 @@
         const toggleContainer = document.getElementById('toggle-container');
         const form = document.getElementById('auth-form');
         const forgotContainer = document.getElementById('forgot-container');
+        
+        const identifierLabel = document.getElementById('identifier-label');
+        const signupEmailGroup = document.getElementById('signup-email-group');
+        const emailInput = document.getElementById('email');
+
+        document.getElementById('identifier-error').style.display = 'none';
+        document.getElementById('signup-email-error').style.display = 'none';
+        document.getElementById('password-error').style.display = 'none';
 
         if (isLogin) {
             formTitle.innerText = "Login";
@@ -277,18 +301,25 @@
             submitBtn.style.background = "var(--primary-green)";
             toggleContainer.innerHTML = `Don't have an account? <a href="#" onclick="toggleForm(event)">Sign Up</a>`;
             form.action = "/auth?action=login";
-            forgotContainer.style.display = "block"; // Show forgot password link
+            forgotContainer.style.display = "block";
+            
+            identifierLabel.innerText = "Email Address or Username";
+            signupEmailGroup.style.display = "none";
+            emailInput.removeAttribute('required');
         } else {
             formTitle.innerText = "Sign Up";
             submitBtn.innerText = "Create Account";
             submitBtn.style.background = "var(--primary-blue)";
             toggleContainer.innerHTML = `Already have an account? <a href="#" onclick="toggleForm(event)">Login</a>`;
             form.action = "/auth?action=signup";
-            forgotContainer.style.display = "none"; // Hide forgot password link
+            forgotContainer.style.display = "none";
+            
+            identifierLabel.innerText = "Custom Username";
+            signupEmailGroup.style.display = "block";
+            emailInput.setAttribute('required', 'true');
         }
     }
 
-    // Modal Display Logic
     function openModal(e) {
         e.preventDefault();
         document.getElementById('forgot-modal').style.display = 'flex';
@@ -299,7 +330,6 @@
         document.getElementById('forgot-form').reset();
     }
 
-    // Close modal if user clicks outside the inner card box
     window.onclick = function(event) {
         const modal = document.getElementById('forgot-modal');
         if (event.target == modal) {
@@ -307,7 +337,45 @@
         }
     }
 
-    // Submit processing logic via asynchronous backend call
+    document.getElementById('auth-form').addEventListener('submit', async (e) => {
+        const form = e.target;
+        const currentAction = new URLSearchParams(form.action.split('?')[1]).get('action');
+        
+        if (currentAction === 'login') {
+            e.preventDefault();
+            
+            const identErr = document.getElementById('identifier-error');
+            const passErr = document.getElementById('password-error');
+            identErr.style.display = 'none';
+            passErr.style.display = 'none';
+
+            const formData = new URLSearchParams(new FormData(form));
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    window.location.href = response.url;
+                } else {
+                    const result = await response.json();
+                    if (response.status === 404) {
+                        identErr.innerText = result.error;
+                        identErr.style.display = 'block';
+                    } else if (response.status === 401) {
+                        passErr.innerText = result.error;
+                        passErr.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    });
+
     document.getElementById('forgot-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('forgot-email').value;
@@ -315,19 +383,17 @@
         try {
             const response = await fetch('/forgot-password', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `email=${encodeURIComponent(email)}`
             });
 
             const result = await response.json();
 
             if (response.ok) {
-                alert(result.message); // Successful match notification window
+                alert(result.message);
                 closeModal();
             } else {
-                alert(result.error); // Error message handling box windows alert
+                alert(result.error);
             }
         } catch (error) {
             alert("Something went wrong. Please try again later.");
