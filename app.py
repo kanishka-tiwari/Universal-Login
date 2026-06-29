@@ -69,7 +69,11 @@ def callback():
 
 @app.route('/dashboard')
 def dashboard():
-    return "<h1>Welcome to your Application! Authentication Successful.</h1>"
+    return """
+    <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #E0E7FF 0%, #F3E8FF 100%); margin: 0;">
+        <h1 style="font-size: 2.5rem; color: #1F2937; text-align: center; padding: 0 20px;">Welcome to your Application!<br><span style="color: #10B981;">Authentication Successful.</span></h1>
+    </div>
+    """
 
 if __name__ == '__main__':
     app.run(debug=True)
