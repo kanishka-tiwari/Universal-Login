@@ -9,9 +9,8 @@ GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
-# Updated database mapping formats
-USERS = {}         # Stores registration metadata profiles: {username: {"email": email, "password": password}}
-EMAIL_MAP = {}     # Relates registration emails directly back to usernames: {email: username}
+USERS = {}         
+EMAIL_MAP = {}     
 ACTIVE_SESSIONS = {}  
 
 def validate_password(password):
@@ -47,7 +46,6 @@ def auth():
         if password_error:
             return f"<h1>Registration Failed</h1><p>{password_error}</p><a href='/'>Go Back</a>", 400
             
-        # Write registration configuration profiles across maps
         USERS[username] = {"email": email, "password": password}
         EMAIL_MAP[email] = username
         
@@ -61,7 +59,6 @@ def auth():
         identifier = request.form.get('identifier').strip().lower()
         password = request.form.get('password')
         
-        # Derive target user account record context
         target_username = None
         if identifier in USERS:
             target_username = identifier
@@ -74,6 +71,7 @@ def auth():
         if USERS[target_username]["password"] != password:
             return jsonify({"error": "Invalid password."}), 401
 
+        # Generates a brand new token. This automatically invalidates any other device's session.
         current_session_token = os.urandom(16).hex()
         session['user'] = target_username
         session['session_token'] = current_session_token
