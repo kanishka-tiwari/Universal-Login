@@ -3,12 +3,15 @@ import os
 import requests
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Required to use sessions for authentication tracking
+app.secret_key = os.urandom(24)
 
-# Google OAuth Configuration from Render environment variables
+# Google OAuth Configuration
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
+
+# Temporary in-memory database mock
+USER_DB = {}
 
 @app.route('/')
 def index():
@@ -20,16 +23,26 @@ def auth():
     email = request.form.get('email')
     password = request.form.get('password')
     
-    # Simple placeholder routing validation for Email/Password Sign Up/In
-    return redirect(url_for('dashboard'))
+    if action == 'signup':
+        if email in USER_DB:
+            return "<h1>Account already exists! Go back and login.</h1>", 400
+        USER_DB[email] = password
+        session['user'] = email
+        return redirect(url_for('dashboard'))
+        
+    elif action == 'login':
+        if email in USER_DB and USER_DB[email] == password:
+            session['user'] = email
+            return redirect(url_for('dashboard'))
+        else:
+            return "<h1>Invalid email or password!</h1>", 401
+
+    return redirect(url_for('index'))
 
 @app.route('/login/google')
 def login_google():
-    # Get Google's authorization endpoint
     google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
     authorization_endpoint = google_provider_cfg["authorization_endpoint"]
-
-    # Construct the request URI for Google Login
     request_uri = (
         f"{authorization_endpoint}?"
         f"response_type=code"
@@ -41,15 +54,9 @@ def login_google():
 
 @app.route('/callback')
 def callback():
-    # Get the authorization code sent back back by Google
     code = request.args.get("code")
-    
-    # Find endpoints to look up token information
     google_provider_cfg = requests.get(GOOGLE_DISCOVERY_URL).json()
     token_endpoint = google_provider_cfg["token_endpoint"]
-
-    # Prepare credentials data to exchange the authorization code for an access token
-    # Prepare credentials data to exchange the authorization code for an access token
     token_data = {
         "code": code,
         "client_id": GOOGLE_CLIENT_ID,
@@ -57,11 +64,7 @@ def callback():
         "redirect_uri": request.url_root.replace('http://', 'https://') + "callback",
         "grant_type": "authorization_code"
     }
-
-    # Send POST request to fetch token authentication data
     token_response = requests.post(token_endpoint, data=token_data).json()
-    
-    # User is now authenticated
     return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
