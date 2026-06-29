@@ -169,11 +169,6 @@
 </div>
 
 <script>
-    // Initialize Supabase (Replace with your own credentials)
-    const SUPABASE_URL = "YOUR_SUPABASE_URL";
-    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
     let isLogin = true;
 
     function toggleForm(e) {
@@ -198,15 +193,6 @@
             toggleContainer.innerHTML = `Already have an account? <a href="#" onclick="toggleForm(event)">Login</a>`;
             form.action = "/auth?action=signup";
         }
-    }
-
-    async function loginWithGoogle() {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: window.location.origin + '/dashboard'
-            }
-        });
     }
 </script>
 </body>
