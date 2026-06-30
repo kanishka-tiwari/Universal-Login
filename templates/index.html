@@ -338,41 +338,43 @@
     }
 
     document.getElementById('auth-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
         const form = e.target;
-        const currentAction = new URLSearchParams(form.action.split('?')[1]).get('action');
         
-        if (currentAction === 'login') {
-            e.preventDefault();
-            
-            const identErr = document.getElementById('identifier-error');
-            const passErr = document.getElementById('password-error');
-            identErr.style.display = 'none';
-            passErr.style.display = 'none';
+        const identErr = document.getElementById('identifier-error');
+        const emailErr = document.getElementById('signup-email-error');
+        const passErr = document.getElementById('password-error');
+        
+        identErr.style.display = 'none';
+        emailErr.style.display = 'none';
+        passErr.style.display = 'none';
 
-            const formData = new URLSearchParams(new FormData(form));
+        const formData = new URLSearchParams(new FormData(form));
 
-            try {
-                const response = await fetch(form.action, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: formData
-                });
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
 
-                if (response.ok) {
-                    window.location.href = response.url;
-                } else {
-                    const result = await response.json();
-                    if (response.status === 404) {
-                        identErr.innerText = result.error;
-                        identErr.style.display = 'block';
-                    } else if (response.status === 401) {
-                        passErr.innerText = result.error;
-                        passErr.style.display = 'block';
-                    }
+            if (response.ok) {
+                window.location.href = response.url;
+            } else {
+                const result = await response.json();
+                if (result.field === 'username') {
+                    identErr.innerText = result.error;
+                    identErr.style.display = 'block';
+                } else if (result.field === 'email') {
+                    emailErr.innerText = result.error;
+                    emailErr.style.display = 'block';
+                } else if (result.field === 'password') {
+                    passErr.innerText = result.error;
+                    passErr.style.display = 'block';
                 }
-            } catch (err) {
-                console.error(err);
             }
+        } catch (err) {
+            console.error(err);
         }
     });
 

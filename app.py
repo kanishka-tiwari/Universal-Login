@@ -38,13 +38,13 @@ def auth():
         password = request.form.get('password')
         
         if username in USERS:
-            return "<h1>Username already taken! Go back and try another.</h1>", 400
+            return jsonify({"error": "Username already taken! Try another.", "field": "username"}), 400
         if email in EMAIL_MAP:
-            return "<h1>Email already registered! Go back and login.</h1>", 400
+            return jsonify({"error": "Email already registered! Go back and login.", "field": "email"}), 400
             
         password_error = validate_password(password)
         if password_error:
-            return f"<h1>Registration Failed</h1><p>{password_error}</p><a href='/'>Go Back</a>", 400
+            return jsonify({"error": password_error, "field": "password"}), 400
             
         USERS[username] = {"email": email, "password": password}
         EMAIL_MAP[email] = username
@@ -66,12 +66,11 @@ def auth():
             target_username = EMAIL_MAP[identifier]
             
         if not target_username:
-            return jsonify({"error": "This email or username is not registered. Sign Up to make a new account."}), 404
+            return jsonify({"error": "This email or username is not registered.", "field": "username"}), 404
             
         if USERS[target_username]["password"] != password:
-            return jsonify({"error": "Invalid password."}), 401
+            return jsonify({"error": "Invalid password.", "field": "password"}), 401
 
-        # Generates a brand new token. This automatically invalidates any other device's session.
         current_session_token = os.urandom(16).hex()
         session['user'] = target_username
         session['session_token'] = current_session_token
